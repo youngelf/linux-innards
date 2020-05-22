@@ -6,6 +6,9 @@
    we will start trampling other threads' information */
 
 
+/* Define this to 1 to try to access the other thread's stack */
+/* #define CRASH 1 */
+
 /* Information that will be sent to every thread so it knows its own
  * name. Useful only for the user-visible printf. */
 typedef struct {
@@ -19,11 +22,33 @@ void *thread_entry(void *threadInfo){
 	/* Unused local variable. Creating one to find the address of
 	 * the stack */
 	int local_variable = 42;
+#ifdef CRASH
+	int other_variable;
+#endif
 	threadName *info = (threadName *)threadInfo;
+
+	/* Let's change our local variable so we can detect another
+	 * thread. */
+	local_variable = info->id;
 
 	/* Prints the address of the local variable allocated on the
 	 * stack */
 	printf("%s: Address of first variable 0x%lx\n", info->name, (unsigned long) &local_variable);
+
+	/* For the first thread only, try to read the second thread's
+	 * information. This will segfault as a thread is wandering
+	 * off its own stack: https://lwn.net/Articles/725832/ */
+#ifdef CRASH
+	if (info->id == 1) {
+		other_variable = *(&local_variable - (0x8392704 >> 3));
+		printf("%s: Other thread's variable = %d\n", info->name, other_variable);
+	}
+#endif
+
+	/* Need to wait some time (2 seconds here) before returning or else
+	   the thread finishes */
+	sleep(2);
+
 	return NULL;
 }
 
